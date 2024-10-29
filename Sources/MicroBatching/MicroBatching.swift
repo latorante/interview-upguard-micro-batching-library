@@ -106,10 +106,9 @@ public actor MicroBatching {
             
             // Check for timeout
             if Date().timeIntervalSince(startTime) >= batchTimeout {
-                break
+                return !batch.isEmpty // Return true if batch has jobs
             }
         }
-        
         return !batch.isEmpty || batch.count == batchSize
     }
     
