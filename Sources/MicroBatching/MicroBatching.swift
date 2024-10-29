@@ -12,6 +12,11 @@ public typealias Job = @Sendable () -> JobResult
 public struct JobResult {
     public let result: Any?
     public let error: Error?
+    
+    public init(result: Any?, error: Error?) {
+        self.result = result
+        self.error = error
+    }
 }
 
 // BatchProcessor protocol defines how to process a batch of jobs.
@@ -53,7 +58,7 @@ public actor MicroBatching {
     
     /// Submit a job to be processed.
     /// When we get a job, we kick off the processing if we aren't already doing it.
-    func submit(job: @escaping Job) {
+    public func submit(job: @escaping Job) {
         Task {
             await processJob(job)
         }
