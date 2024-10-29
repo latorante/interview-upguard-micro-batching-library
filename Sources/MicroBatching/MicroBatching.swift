@@ -3,50 +3,115 @@
 
 import Foundation
 
-// Job represents a task to be processed.
-typealias Job = () -> JobResult
+// Job is a task to be processed.
+// It's a closure that returns a JobResult, which means it does some work and gives us a result back.
+typealias Job = @Sendable () -> JobResult
 
-// JobResult represents the result of a processed job.
+// Outcome of a processed job.
+// It can either contain a successful result or an error if something went wrong.
 struct JobResult {
     let result: Any?
     let error: Error?
 }
 
-// Base Micro Batcher Class
-// TODO: Move to protocol - this is base only
-class MicroBatching {
-    private var jobs: [Job] = []
-    private let batchSize: Int
-    private let batchTimeout: TimeInterval
-    private var isProcessing: Bool = false
-    private let processingQueue = DispatchQueue(label: "com.upguard.processing.microbatching")
-    private let shutdownSemaphore = DispatchSemaphore(value: 0)
+// BatchProcessor protocol defines how to process a batch of jobs.
+protocol BatchProcessor {
+    func process(batch: [Job]) -> [JobResult]
+}
+
+// MicroBatchingConfig allows for customizable batching behavior.
+struct MicroBatchingConfig {
+    let batchSize: Int
+    let batchTimeout: TimeInterval
     
     init(batchSize: Int, batchTimeout: TimeInterval) {
         self.batchSize = batchSize
         self.batchTimeout = batchTimeout
-        // TODO: max size and max timeout
+    }
+}
+
+// Base Micro Batcher Class
+actor MicroBatching {
+    // Array of jobs received by the batcher
+    private var jobs: [Job] = []
+    
+    // Configurable properties for batch size and timeout.
+    private let batchSize: Int
+    private let batchTimeout: TimeInterval
+    
+    // A flag to check if we're currently processing jobs.
+    private var isProcessing: Bool = false
+    
+    // A reference to the batch processor we’ll use to handle job processing.
+    private let batchProcessor: BatchProcessor
+
+    init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
+        self.batchSize = config.batchSize
+        self.batchTimeout = config.batchTimeout
+        self.batchProcessor = batchProcessor
     }
     
-    /// Submit a job to be processed
+    /// Submit a job to be processed.
+    /// When we get a job, we kick off the processing if we aren't already doing it.
     func submit(job: @escaping Job) {
-        // Implement
+        Task {
+            await processJob(job)
+        }
     }
     
-    /// Start process
-    private func start() {
-        // Implement
-        // NOTE: Swift5 concurrrency
+    /// Add job to the queue to be processed.
+    private func processJob(_ job: @escaping Job) async {
+        jobs.append(job) // Add the job to the queue.
+        // If we're not currently processing jobs, start processing.
+        if !isProcessing {
+            isProcessing = true // Mark that we’re now processing.
+            await start() // Start the batch processing.
+        }
     }
     
-    /// Process a batch of jobs.
-    private func processBatch() {
-        // Implement
+    /// Start processing jobs in batches.
+    private func start() async {
+        while true {
+            var currentBatch: [Job] = []
+            
+            // Collect jobs until we reach batch size or timeout
+            let batchReady = await collectBatch(&currentBatch)
+            
+            // Process the collected batch if we have one
+            if !currentBatch.isEmpty {
+                let results = batchProcessor.process(batch: currentBatch)
+                // Handle the results as needed
+                print("Processed batch with results: \(results)")
+            }
+
+            // Exit if no jobs are left
+            if !batchReady { break }
+        }
+        isProcessing = false
     }
     
-    /// Shutdown the batcher, waiting for all jobs to be processed
-    /// should be accessible from outside
-    public func shutdown() {
+    /// Collect a batch of jobs.
+    private func collectBatch(_ batch: inout [Job]) async -> Bool {
+        let startTime = Date()
+        while jobs.count > 0 && batch.count < batchSize {
+            if let job = jobs.first {
+                jobs.removeFirst()
+                batch.append(job)
+            }
+            
+            // Check for timeout
+            if Date().timeIntervalSince(startTime) >= batchTimeout {
+                break
+            }
+        }
         
+        return !batch.isEmpty || batch.count == batchSize
+    }
+    
+    /// Shutdown the batcher, waiting for all jobs to be processed.
+    public func shutdown() async {
+        while isProcessing || !jobs.isEmpty {
+            await Task.yield()
+        }
     }
 }
