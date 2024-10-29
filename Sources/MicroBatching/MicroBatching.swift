@@ -88,7 +88,7 @@ public actor MicroBatching {
 
             if !currentBatch.isEmpty {
                 let results = batchProcessor.process(batch: currentBatch)
-                print("Processed batch with results: \(results)")
+                print("micro-batching: Processed batch with results: \(results)")
                 lastProcessedTime = Date() // Update the last processed time
             }
 
