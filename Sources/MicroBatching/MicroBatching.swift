@@ -89,8 +89,10 @@ public actor MicroBatching {
                 print("Processed batch with results: \(results)")
             }
 
-            // Exit if no jobs are left
-            if !batchReady { break }
+            // Exit if no jobs are left and we've processed the batch
+            if !batchReady && jobs.isEmpty {
+                break
+            }
         }
         isProcessing = false
     }
