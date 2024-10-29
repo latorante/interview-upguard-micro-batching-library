@@ -5,22 +5,22 @@ import Foundation
 
 // Job is a task to be processed.
 // It's a closure that returns a JobResult, which means it does some work and gives us a result back.
-typealias Job = @Sendable () -> JobResult
+public typealias Job = @Sendable () -> JobResult
 
 // Outcome of a processed job.
 // It can either contain a successful result or an error if something went wrong.
-struct JobResult {
+public struct JobResult {
     let result: Any?
     let error: Error?
 }
 
 // BatchProcessor protocol defines how to process a batch of jobs.
-protocol BatchProcessor {
+public protocol BatchProcessor {
     func process(batch: [Job]) -> [JobResult]
 }
 
 // MicroBatchingConfig allows for customizable batching behavior.
-struct MicroBatchingConfig {
+public struct MicroBatchingConfig {
     let batchSize: Int
     let batchTimeout: TimeInterval
     
@@ -31,7 +31,7 @@ struct MicroBatchingConfig {
 }
 
 // Base Micro Batcher Class
-actor MicroBatching {
+public actor MicroBatching {
     // Array of jobs received by the batcher
     private var jobs: [Job] = []
     
