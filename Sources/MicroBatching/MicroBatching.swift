@@ -27,22 +27,20 @@ public protocol BatchProcessor {
 // MicroBatchingConfig allows for customizable batching behavior.
 public struct MicroBatchingConfig {
     public let batchSize: Int
-    public let batchTimeout: TimeInterval
+    public var batchFrequency: TimeInterval // Frequency for processing the batch
     
-    public init(batchSize: Int, batchTimeout: TimeInterval) {
+    public init(batchSize: Int, batchFrequency: TimeInterval) {
         self.batchSize = batchSize
-        self.batchTimeout = batchTimeout
+        self.batchFrequency = batchFrequency
     }
 }
 
 // Base Micro Batcher Class
 public actor MicroBatching {
+    // Config for the batcher
+    private let config: MicroBatchingConfig
     // Array of jobs received by the batcher
     private var jobs: [Job] = []
-    
-    // Configurable properties for batch size and timeout.
-    public let batchSize: Int
-    public let batchTimeout: TimeInterval
     
     // A flag to check if we're currently processing jobs.
     private var isProcessing: Bool = false
@@ -50,9 +48,8 @@ public actor MicroBatching {
     // A reference to the batch processor we’ll use to handle job processing.
     public let batchProcessor: BatchProcessor
 
-    public init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
-        self.batchSize = config.batchSize
-        self.batchTimeout = config.batchTimeout
+    init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
+        self.config = config
         self.batchProcessor = batchProcessor
     }
     
@@ -76,43 +73,35 @@ public actor MicroBatching {
     
     /// Start processing jobs in batches.
     private func start() async {
-        while true {
+        isProcessing = true
+        var lastProcessedTime = Date()
+
+        while !jobs.isEmpty {
             var currentBatch: [Job] = []
-            
-            // Collect jobs until we reach batch size or timeout
-            let batchReady = await collectBatch(&currentBatch)
-            
-            // Process the collected batch if we have one
-            if !currentBatch.isEmpty {
-                let results = batchProcessor.process(batch: currentBatch)
-                // Handle the results as needed
-                print("Processed batch with results: \(results)")
+
+            // Collect jobs until batch size is reached or the frequency timeout occurs
+            while currentBatch.count < config.batchSize {
+                guard !jobs.isEmpty else { break }
+                let job = await jobs.removeFirst()
+                currentBatch.append(job)
             }
 
-            // Exit if no jobs are left and we've processed the batch
-            if !batchReady && jobs.isEmpty {
-                break
+            if !currentBatch.isEmpty {
+                let results = batchProcessor.process(batch: currentBatch)
+                print("Processed batch with results: \(results)")
+                lastProcessedTime = Date() // Update the last processed time
+            }
+
+            // Wait until the frequency timeout before checking for more jobs
+            let elapsedTime = Date().timeIntervalSince(lastProcessedTime)
+            if elapsedTime < config.batchFrequency {
+                await Task.sleep(UInt64((config.batchFrequency - elapsedTime) * 1_000_000_000)) // Sleep for the remaining time
             }
         }
+
         isProcessing = false
     }
-    
-    /// Collect a batch of jobs.
-    private func collectBatch(_ batch: inout [Job]) async -> Bool {
-        let startTime = Date()
-        while jobs.count > 0 && batch.count < batchSize {
-            if let job = jobs.first {
-                jobs.removeFirst()
-                batch.append(job)
-            }
-            
-            // Check for timeout
-            if Date().timeIntervalSince(startTime) >= batchTimeout {
-                return !batch.isEmpty // Return true if batch has jobs
-            }
-        }
-        return !batch.isEmpty || batch.count == batchSize
-    }
+
     
     /// Shutdown the batcher, waiting for all jobs to be processed.
     public func shutdown() async {
