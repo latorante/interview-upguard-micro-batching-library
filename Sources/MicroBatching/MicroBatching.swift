@@ -10,8 +10,8 @@ public typealias Job = @Sendable () -> JobResult
 // Outcome of a processed job.
 // It can either contain a successful result or an error if something went wrong.
 public struct JobResult {
-    let result: Any?
-    let error: Error?
+    public let result: Any?
+    public let error: Error?
 }
 
 // BatchProcessor protocol defines how to process a batch of jobs.
@@ -21,10 +21,10 @@ public protocol BatchProcessor {
 
 // MicroBatchingConfig allows for customizable batching behavior.
 public struct MicroBatchingConfig {
-    let batchSize: Int
-    let batchTimeout: TimeInterval
+    public let batchSize: Int
+    public let batchTimeout: TimeInterval
     
-    init(batchSize: Int, batchTimeout: TimeInterval) {
+    public init(batchSize: Int, batchTimeout: TimeInterval) {
         self.batchSize = batchSize
         self.batchTimeout = batchTimeout
     }
@@ -36,16 +36,16 @@ public actor MicroBatching {
     private var jobs: [Job] = []
     
     // Configurable properties for batch size and timeout.
-    private let batchSize: Int
-    private let batchTimeout: TimeInterval
+    public let batchSize: Int
+    public let batchTimeout: TimeInterval
     
     // A flag to check if we're currently processing jobs.
     private var isProcessing: Bool = false
     
     // A reference to the batch processor we’ll use to handle job processing.
-    private let batchProcessor: BatchProcessor
+    public let batchProcessor: BatchProcessor
 
-    init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
+    public init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
         self.batchSize = config.batchSize
         self.batchTimeout = config.batchTimeout
         self.batchProcessor = batchProcessor
