@@ -48,7 +48,7 @@ public actor MicroBatching {
     // A reference to the batch processor we’ll use to handle job processing.
     public let batchProcessor: BatchProcessor
 
-    init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
+    public init(config: MicroBatchingConfig, batchProcessor: BatchProcessor) {
         self.config = config
         self.batchProcessor = batchProcessor
     }
