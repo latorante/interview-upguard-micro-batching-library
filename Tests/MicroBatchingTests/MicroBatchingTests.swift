@@ -25,27 +25,39 @@ actor MockBatchProcessor: BatchProcessor {
 final class MicroBatchingTests {
 
     @Test
-    func testMicroBatching_SubmitJobs_ProcessesInBatches() async throws {
-        let config = MicroBatchingConfig(batchSize: 5, batchFrequency: 0.1)
-        let mockProcessor = MockBatchProcessor()
-        let microBatching = MicroBatching(config: config, batchProcessor: mockProcessor)
-
-        // Submit 5 jobs
-        for i in 1...10 {
-            await microBatching.submit {
-                return JobResult(result: "Job \(i)", error: nil)
-            }
-        }
-
-        // Wait for a bit to allow processing
-        try await Task.sleep(nanoseconds: 500_000_000) // Wait for 0.5 seconds
-
-        // Access processed batches safely
-        let processedBatches = await mockProcessor.processedBatches // Access asynchronously
+    func testMicroBatching_VariousBatchSizes() async throws {
         
-        // Verify that two batches were processed, each with 5 elements inside
-        #expect(processedBatches.count == 2)
-        #expect(processedBatches[0].count == 5)  // First batch should contain 3 jobs
-        #expect(processedBatches[1].count == 5)  // Second batch should contain 2 jobs
+        // Iteratae over test cases
+        let testCases: [(batchSize: Int, totalJobs: Int)] = [
+            (batchSize: 10, totalJobs: 20),
+            (batchSize: 5, totalJobs: 20),
+            (batchSize: 2, totalJobs: 10)
+        ]
+        
+        for testCase in testCases {
+            let config = MicroBatchingConfig(batchSize: testCase.batchSize, batchFrequency: 0.1)
+            let mockProcessor = MockBatchProcessor()
+            let microBatching = MicroBatching(config: config, batchProcessor: mockProcessor)
+
+            // Submit jobs
+            for i in 1...testCase.totalJobs {
+                await microBatching.submit {
+                    return JobResult(result: "Job \(i)", error: nil)
+                }
+            }
+
+            // Wait for a bit to allow processing
+            try await Task.sleep(nanoseconds: 500_000_000) // Wait for 0.5 seconds
+
+            // Access processed batches safely
+            let processedBatches = await mockProcessor.processedBatches // Access asynchronously
+            
+            // Calculate the expected number of batches
+            let expectedBatches = (testCase.totalJobs + testCase.batchSize - 1) / testCase.batchSize
+            
+            // Verify the number of batches processed
+            #expect(processedBatches.count == expectedBatches)
+            #expect(processedBatches.allSatisfy { $0.count == min(testCase.batchSize, testCase.totalJobs % testCase.batchSize) || $0.count == testCase.batchSize })
+        }
     }
 }
