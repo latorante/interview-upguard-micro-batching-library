@@ -73,7 +73,7 @@ public actor MicroBatching {
     /// Check if we can start processing jobs in batches.
     private func checkAndStart() async {
         // Only start processing if we have enough jobs
-        if jobs.count >= config.batchSize {
+        if jobs.count == config.batchSize {
             isProcessing = true // Mark that we’re now processing.
             await start() // Start the batch processing.
         }
