@@ -66,6 +66,14 @@ public actor MicroBatching {
         jobs.append(job) // Add the job to the queue.
         // If we're not currently processing jobs, start processing.
         if !isProcessing {
+            await checkAndStart()
+        }
+    }
+    
+    /// Check if we can start processing jobs in batches.
+    private func checkAndStart() async {
+        // Only start processing if we have enough jobs
+        if jobs.count >= config.batchSize {
             isProcessing = true // Mark that we’re now processing.
             await start() // Start the batch processing.
         }
