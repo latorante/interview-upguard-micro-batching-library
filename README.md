@@ -39,6 +39,10 @@ let package = Package(
 )
 ```
 
+## Run tests
+
+To run tests, simply go  with `swift test`
+
 ## Usage
 
 You need to implement your own `BatchProcessor` first, which follows the `BatchProcessor` protocol defined by this library.
